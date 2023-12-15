@@ -25,6 +25,6 @@ jobs:
           role-session-name: GitHubActions
           aws-region: ${{ env.AWS_REGION }}
 
-     - run: aws sts get-caller-identity
+      - run: aws sts get-caller-identity
 
       
