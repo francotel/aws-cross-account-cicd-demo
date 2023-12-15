@@ -1,0 +1,22 @@
+account:
+
+github actions:
+  devops (us-west-2):
+  - bucket: subfolders (dev,qa,prod) states de tf
+  - asume: rol cross (dev,qa,prod)
+
+  dev (us-east-1):
+  - role: ciertos permisos
+
+  qa (californa):
+  - role: ciertos permisos
+
+  prod (irlanda):
+  - role: ciertos permisos
+
+gitflow:
+ 
+ - feature/demo
+ - dev
+ - qa
+ - prod

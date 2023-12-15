@@ -5,7 +5,6 @@ resource "aws_iam_role" "cross_role" {
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
 }
 
-#update to role specific and not account wide trust
 data "aws_iam_policy_document" "assume_role" {
 
   statement {
