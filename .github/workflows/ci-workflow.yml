@@ -30,7 +30,7 @@ jobs:
       - name: configure aws credentials DEV
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::087657543526:role/cross-role-target-dev
+          role-to-assume: arn:aws:iam::962542038213:role/cross-role-target-dev
           role-session-name: GitHubActions-dev
           aws-region: us-west-2
 
