@@ -9,13 +9,13 @@ terraform {
 
   }
 
-  # backend "s3" {
-  #   bucket         = "across-account-terraform-state-backend"
-  #   dynamodb_table = "terraform_state"
-  #   key            = "cross-role-tf.tfstate"
-  #   region         = "us-west-2"
-  #   encrypt        = true
-  # }
+  backend "s3" {
+    bucket         = "across-account-terraform-state-backend"
+    dynamodb_table = "terraform_state"
+    key            = "cross-role-tf.tfstate"
+    region         = "us-west-2"
+    encrypt        = true
+  }
 
 }
 
