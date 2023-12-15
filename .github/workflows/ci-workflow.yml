@@ -23,7 +23,16 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::087657543526:role/GitHubActions-devops
           role-session-name: GitHubActions
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: us-west-2
+
+      - run: aws sts get-caller-identity
+
+      - name: configure aws credentials DEV
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::087657543526:role/cross-role-target-dev
+          role-session-name: GitHubActions-dev
+          aws-region: us-east-1
 
       - run: aws sts get-caller-identity
 
