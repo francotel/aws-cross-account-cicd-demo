@@ -9,13 +9,13 @@ terraform {
 
   }
 
-  # backend "s3" {
-  #   bucket         = "ue1innodsos3iac001"
-  #   dynamodb_table = "ue1innodsodbdiac001"
-  #   key            = "terraform-demo.tfstate"
-  #   region         = "us-west-2"
-  #   encrypt        = true
-  # }
+  backend "s3" {
+    bucket         = "across-account-terraform-state-backend"
+    dynamodb_table = "terraform_state"
+    key            = "devops-account/terraform-backend.tfstate"
+    region         = "us-west-2"
+    encrypt        = true
+  }
 }
 
 provider "aws" {

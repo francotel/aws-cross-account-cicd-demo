@@ -32,7 +32,7 @@ all-test: clean tf-plan
 	rm -rf .terraform
 
 tf-setup-backend: $(env)
-	cd 01-setup-backend-tf && terraform init -reconfigure -upgrade && terraform validate && terraform fmt && terraform plan && terraform apply -auto-approve
+	cd 01-setup-backend-tf && terraform init -reconfigure -upgrade && terraform validate && terraform fmt && terraform plan && terraform apply
 
 tf-cross-role: $(env)
 	cd 02-cross-account-setup && \
