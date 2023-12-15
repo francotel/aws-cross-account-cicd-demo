@@ -1,20 +1,26 @@
+locals {
+  github_oidc_domain = "token.actions.githubusercontent.com"
+  reponame           = "francotel/aws-cross-account-cicd-demo"
+}
+
 resource "aws_iam_role" "cross_role" {
   name               = "cross-role-target-${var.env}"
   description        = "Used by github to deploy infrastructure"
   path               = "/"
-  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+  assume_role_policy = data.aws_iam_policy_document.assume_github.json
 }
 
-data "aws_iam_policy_document" "assume_role" {
+resource "aws_iam_role_policy" "sts" {
+  name   = "sts-policy-${var.env}"
+  role   = aws_iam_role.cross_role.name
+  policy = data.aws_iam_policy_document.sts.json
+}
 
+data "aws_iam_policy_document" "sts" {
   statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "AWS"
-      identifiers = [var.devops_account_id]
-    }
+    actions   = ["sts:GetCallerIdentity"]
+    resources = ["*"]
   }
-
 }
 
 # Cross Role policy
@@ -22,6 +28,41 @@ resource "aws_iam_role_policy" "attach_codepipeline_policy" {
   name   = "policy-deploy-cicd-infra-${var.env}"
   role   = aws_iam_role.cross_role.id
   policy = data.aws_iam_policy_document.cross_policy.json
+}
+
+data "aws_iam_policy_document" "assume_github" {
+  statement {
+    actions = [
+      "sts:AssumeRoleWithWebIdentity",
+      "sts:TagSession"
+    ]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "${local.github_oidc_domain}:sub"
+      values   = ["repo:${local.reponame}:*"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${local.github_oidc_domain}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+data "tls_certificate" "github" {
+  url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
+}
+
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
+  client_id_list  = ["sts.amazonaws.com"]
 }
 
 # resource "aws_iam_role_policy" "deploy_infra" {

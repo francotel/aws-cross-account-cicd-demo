@@ -5,7 +5,7 @@ devops:
 	$(eval AWS_PROFILE   = $(shell echo "orion-aws"))
 
 dev:
-	$(eval AWS_PROFILE   = $(shell echo "orion-aws"))
+	$(eval AWS_PROFILE   = $(shell echo "scc-aws"))
 
 qa:
 	$(eval AWS_PROFILE   = $(shell echo "orion-aws"))

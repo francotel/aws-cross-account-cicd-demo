@@ -32,7 +32,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::087657543526:role/cross-role-target-dev
           role-session-name: GitHubActions-dev
-          aws-region: us-east-1
+          aws-region: us-west-2
 
       - run: aws sts get-caller-identity
 
