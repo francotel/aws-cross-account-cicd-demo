@@ -2,6 +2,7 @@ name: Gitflow Workflow
 
 on:
   pull_request:
+    types: [opened, synchronize]
     branches:
       - main
       - develop
