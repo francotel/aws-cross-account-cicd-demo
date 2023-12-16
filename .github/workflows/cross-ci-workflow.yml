@@ -25,7 +25,6 @@ jobs:
 
   deploy_to_dev:
     permissions:
-    contents: read
     pull-requests: write
     uses: ./.github/workflows/repo-cross-ci-workflow.yml
     needs: NotifyPR
