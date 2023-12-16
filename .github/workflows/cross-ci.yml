@@ -1,0 +1,622 @@
+---
+name: Workflow CI de Terraform
+
+on:
+  workflow_call:
+    inputs:
+      email_notifications:
+        description: Whether e-mail notifications are enabled or not
+        required: false
+        type: boolean
+        default: true
+
+      runs_on:
+        description: Type of GH runner to use. Valid options are ubuntu-latest and self-hosted.
+        required: false
+        type: string
+        default: ubuntu-latest
+
+      teams_notifications:
+        description: Whether Teams notifications are enabled or not
+        required: false
+        type: boolean
+        default: true
+
+      tflint:
+        description: Whether TFLint are enabled or not
+        required: false
+        type: boolean
+        default: true
+      
+      driftctl:
+        description: Whether Driftctl are enabled or not
+        required: false
+        type: boolean
+        default: true
+
+      checkov:
+        description: Whether Checkov are enabled or not
+        required: false
+        type: boolean
+        default: true
+
+      kics:
+        description: Whether Kics are enabled or not
+        required: false
+        type: boolean
+        default: true
+
+      infracost:
+        description: Whether Infracost are enabled or not
+        required: false
+        type: boolean
+        default: true
+        
+      tf_version:
+        description: Terraform version to use when tf_edition is set to 'oss'
+        required: false
+        type: string
+        default: 1.6.4
+
+      tf_workdir:
+        description: Terraform working directory
+        required: false
+        type: string
+        default: .
+
+      env:
+        description: Terraform env workspace
+        required: true
+        type: string
+        default: dev
+
+      account_id:
+        description: Terraform account id
+        required: true
+        type: string
+        default: 962542038213
+
+      aws_region:
+        description: Terraform aws region 
+        required: true
+        type: string
+        default: us-east-1
+
+      iam_role_name:
+        description: Terraform role cross workspace
+        required: true
+        type: string
+        default: cross-role-target
+
+jobs:
+  fmt:
+    runs-on: inputs.runs_on
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+        
+    - name: Terraform fmt
+      id: fmt
+      run: | 
+        terraform fmt -check -no-color |& tee -p fmt-output.txt
+        if [ $(echo "${PIPESTATUS[0]}") != 0 ]; then echo "FMT_STDOUT=failure" >> $GITHUB_OUTPUT; fi
+
+    - name: Fmt Console
+      id: fmt-console
+      uses: gh640/command-result-action@v1
+      with:
+        command: cat fmt-output.txt
+    
+    - name: Exit Code
+      if: ${{ steps.fmt.outputs.FMT_STDOUT == 'failure' }}
+      run: exit 1
+
+    outputs:
+      FMT_STDOUT: ${{ steps.fmt.outputs.FMT_STDOUT }}
+      FMT_OUTPUT: ${{ steps.fmt-console.outputs.stdout }}
+
+  driftctl:
+    if: ${{ inputs.driftctl }}
+    name: Driftctl
+    needs: fmt
+    runs-on: ubuntu-latest
+    env:
+      TF_ROOT: ${{ inputs.tf_workdir }}
+    steps:
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${ inputs.account_id }:role/${ inputs.iam_role_name }-${ inputs.env }
+          role-session-name: GitHubActions
+          aws-region: ${ inputs.aws_region }
+
+      - name: Run driftctl
+        id: driftctl
+        uses: snyk/driftctl-action@v1
+        with:
+          version: 0.39.0
+          args: --from tfstate+s3://${{ secrets.DRIFTCTL_BACKEND_S3 }}/terraform-demo.tfstate --tf-provider-version 4.6.0 --only-managed=true --output console://
+        continue-on-error: true
+
+      - name: print drift
+        run: echo ${{ steps.driftctl.outcome }}
+
+  validate:
+    runs-on: ubuntu-latest
+    needs: [fmt,driftctl]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.tf_version }}
+        terraform_wrapper: false
+
+    - id: init
+      run: terraform init
+        
+    - name: Terraform validate
+      id: validate
+      run: | 
+          terraform validate -no-color |& tee validate.txt
+          if [ $(echo "${PIPESTATUS[0]}") != 0 ]; then echo "VALIDATE_STDOUT=failure" >> $GITHUB_OUTPUT; fi
+    
+    - name: Validate Console
+      if: ${{ steps.validate.outputs.VALIDATE_STDOUT == 'failure' }}
+      id: validate-console
+      uses: gh640/command-result-action@v1
+      with:
+        command: cat validate.txt
+
+    - name: Archive code terraform results
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-code
+        path: .
+        retention-days: 5
+
+    - name: Exit Code
+      if: ${{ steps.validate.outputs.VALIDATE_STDOUT == 'failure' }}
+      run: exit 1
+
+    outputs:
+      VALIDATE_STDOUT: ${{ steps.validate.outputs.VALIDATE_STDOUT }}
+      VALIDATE_OUTPUT: ${{ steps.validate-console.outputs.stdout }}
+
+  tflint:
+    if: ${{ inputs.tflint }}
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+    - name: Download terraform artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: terraform-code
+
+    - uses: terraform-linters/setup-tflint@v4
+      name: Setup TFLint
+      with:
+        tflint_version: ${{ inputs.tflint_version }}
+        tflint_wrapper: false
+
+    - name: Init TFLint
+      working-directory: ${{ inputs.tf_workdir }}
+      run: tflint --init
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Run TFLint
+      id: tflint
+      working-directory: ${{ inputs.tf_workdir }}
+      run: |
+        tflint -f compact --module |& tee tflint.txt
+        if [ ${PIPESTATUS[0]} != 0 ]; then echo "TFLINT_STDOUT=failure" >> $GITHUB_OUTPUT; fi
+
+    - name: TFlint Console
+      id: tflint-console
+      uses: gh640/command-result-action@v1
+      with:
+        command: cat tflint.txt
+
+    - name: Exit Code
+      if: ${{ steps.tflint.outputs.TFLINT_STDOUT == 'failure' }}
+      run: exit 1
+
+    outputs:
+      TFLINT_STDOUT: ${{ steps.tflint.outputs.TFLINT_STDOUT }}
+      TFLINT_OUTPUT: ${{ steps.tflint-console.outputs.stdout }}    
+
+  plan:
+    if: |
+      always() &&
+      (needs.fmt.outputs.FMT_STDOUT != 'failure')
+    runs-on: ubuntu-latest
+    needs: [validate,fmt,tflint]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.tf_version }}
+        terraform_wrapper: false
+
+    - id: init
+      run: terraform init -upgrade
+
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan -no-color --out tfplan.binary  |& tee plan.txt
+        if [ ${PIPESTATUS[0]} != 0 ]; then echo "PLAN_STDOUT=failure" >> $GITHUB_OUTPUT; fi
+
+    - name: Terraform Show
+      run: terraform show -json tfplan.binary > tfplan.json #  -var-file demo.tfvars
+
+    - name: Archive code terraform plan
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-plan
+        path: |
+            plan.txt
+            tfplan.json
+        retention-days: 5
+
+    - run: cat tfplan.json
+
+    - name: Exit Code
+      if: ${{ steps.plan.outputs.PLAN_STDOUT == 'failure' }}
+      run: exit 1
+
+    outputs:
+      PLAN_STDOUT: ${{ steps.plan.outputs.PLAN_STDOUT }}
+
+  checkov:
+    if: |
+      always() &&
+      ( inputs.checkov )
+    runs-on: ubuntu-latest
+    needs: plan
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Download terraform plan artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: terraform-plan
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Install checkov
+      id: install
+      run: |
+        pip3 --log /tmp/pip.log install --upgrade importlib-metadata attrs urllib3==1.26.18 zipp>=3.1.0 checkov
+
+    - name: run checkov
+      id: checkov
+      run: |
+        checkov -d . -f tfplan.json --quiet --soft-fail --repo-root-for-plan-enrichment . --skip-framework github_actions --output cli --output-file-path ./checkov
+      continue-on-error: true
+
+    - name: print checkov
+      if: ${{ always() }}
+      run: echo ${{ steps.checkov.outputs.stderror}}
+    
+    - run: cat checkov/results_cli.txt
+
+  kics:
+    if: |
+      always() &&
+      ( inputs.kics )
+    runs-on: ubuntu-latest
+    needs: plan
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Download terraform plan artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: terraform-plan
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: run kics Scan
+      id: kics
+      uses: checkmarx/kics-github-action@v1.7.0
+      with:
+        ignore_on_exit: results
+        path: ${{ inputs.tf_workdir }}
+        comments_with_queries: true
+        enable_comments: true
+        enable_jobs_summary: true
+        type: terraform
+        platform_type: terraform
+        cloud_provider: aws
+        output_path: kics-results/
+
+  opa:
+    runs-on: ubuntu-latest
+    needs: plan
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Download terraform plan artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: terraform-plan
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Setup OPA
+      uses: open-policy-agent/setup-opa@v2
+      with:
+        version: latest
+
+    - name: Run OPA Tests
+      run: opa eval --format pretty --data opa/ --input tfplan.json data.terraform.deny
+
+  infracost:
+    name: Infracost
+    if: |
+      always() &&
+      (needs.plan.outputs.PLAN_STDOUT != 'failure' && inputs.infracost )
+    runs-on: ubuntu-latest
+    needs: [opa,kics,checkov,plan]
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      TF_ROOT: ${{ inputs.tf_workdir }}
+    steps:
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v2
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      # Checkout the base branch of the pull request (e.g. main/master).
+      - name: Checkout base branch
+        uses: actions/checkout@v3
+        with:
+          ref: '${{ github.event.pull_request.base.ref }}'
+
+      # Generate Infracost JSON file as the baseline.
+      - name: Generate Infracost cost estimate baseline
+        run: |
+          infracost breakdown --path==${TF_ROOT} \
+                              --format=json \
+                              --out-file=/tmp/infracost-base.json
+
+      # Checkout the current PR branch so we can create a diff.
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+
+      - name: Generate Infracost diff
+        run: |
+          infracost diff --path . --compare-to=/tmp/infracost-base.json
+
+      # Generate an Infracost diff and save it to a JSON file.
+      - name: Generate Infracost diff
+        run: |
+          infracost diff --path=${{ inputs.tf_workdir }} \
+                          --format=json \
+                          --compare-to=/tmp/infracost-base.json \
+                          --out-file=/tmp/infracost.json
+
+      - name: Post Infracost comment
+        run: |
+            infracost comment github --path=/tmp/infracost.json \
+                                     --repo=$GITHUB_REPOSITORY \
+                                     --github-token=${{github.token}} \
+                                     --pull-request=${{github.event.pull_request.number}} \
+                                     --behavior=update
+
+      - name: Post Infracost Notifications
+        run: |
+            infracost output --path=/tmp/infracost.json \
+                             --format=json \
+                             --out-file=infracost-base.json
+
+      - name: 'Upload Infracost file'
+        uses: actions/upload-artifact@v3
+        with:
+          name: infracost-json
+          path: infracost-base.json
+          retention-days: 5
+
+  pr:
+    if: |
+      always() &&
+      (needs.plan.outputs.PLAN_STDOUT != 'failure' )
+    runs-on: ubuntu-latest
+    needs: [infracost,plan]
+    steps:
+    - name: Download terraform plan artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: terraform-plan
+
+    - name: Plan Console
+      id: plan-console
+      uses: gh640/command-result-action@v1
+      with:
+        command: cat plan.txt
+        
+    - uses: actions/github-script@v6
+      id: plan-comment
+      env:
+        PLAN: "terraform\n${{ steps.plan-console.outputs.stdout }}"
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          // 1. Retrieve existing bot comments for the PR
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          })
+          const botComment = comments.find(comment => {
+            return comment.user.type === 'Bot' && comment.body.includes('Terraform Format and Style')
+          })
+
+          // 2. Prepare format of the comment
+          const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+          #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+          #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+          <details><summary>Validation Output</summary>
+
+          \`\`\`\n
+          ${{ steps.validate.outputs.stdout }}
+          \`\`\`
+
+          </details>
+
+          #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+
+          <details><summary>Show Plan</summary>
+
+          \`\`\`\n
+          ${process.env.PLAN}
+          \`\`\`
+
+          </details>
+
+          *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ env.tf_actions_working_dir }}\`, Workflow: \`${{ github.workflow }}\`*`;
+
+          // 3. If we have a comment, update it, otherwise create a new one
+          if (botComment) {
+            github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: output
+            })
+          } else {
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+          }
+
+  notifications:
+    name: Notifications
+    if: ${{ always()}}
+    needs: [fmt, validate, tflint, plan, checkov, kics, opa, infracost]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download terraform plan artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-plan
+      
+      - name: Download Infracost json artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: infracost-json
+        continue-on-error: true
+
+      - name: Plan Console
+        id: plan-console
+        uses: gh640/command-result-action@v1
+        with:
+          command: cat plan.txt
+          
+      - name: Get Plan - Cost Estimation Json
+        run: |
+          echo "COST_RES=$(jq -r '.summary.totalSupportedResources' infracost-base.json )" >> $GITHUB_ENV
+          echo "COST_MON_ANT=$(jq -r '.pastTotalMonthlyCost' infracost-base.json )" >> $GITHUB_ENV
+          echo "COST_MON_PRO=$(jq -r '.totalMonthlyCost' infracost-base.json )" >> $GITHUB_ENV
+          echo "COST_MON_DIFF=$(jq -r '.diffTotalMonthlyCost' infracost-base.json )" >> $GITHUB_ENV
+
+      - name: Notify via Teams on failure
+        if: |
+          always() &&
+          (needs.fmt.outputs.FMT_STDOUT == 'failure' || needs.validate.outputs.VALIDATE_STDOUT == 'failure' || needs.tflint.outputs.TFLINT_STDOUT == 'failure' || needs.plan.outputs.PLAN_STDOUT == 'failure')
+        uses: simbo/msteams-message-card-action@v1.3.2
+        with:
+          buttons: |
+            Github Action ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          color: 0078D7
+          message: "<strong>Plan Fail \n- <strong>GitHub Pull Request = #${{ github.event.number }} \n- <strong>Branch = ${{ github.head_ref}} \n- <strong>User = ${{ github.event.pull_request.user.login }} \n- <strong>Format = \n \n${{ needs.fmt.outputs.FMT_OUTPUT }} \n- <strong>Validate = \n \n${{ needs.validate.outputs.VALIDATE_OUTPUT }} \n- <strong>Lint = \n \n${{ needs.tflint.outputs.TFLINT_OUTPUT}} \n- <strong>Plan = \n \n${{ steps.plan-console.outputs.stdout }}"
+          title: TF Plan Run failed
+          sections: |
+            - activityTitle: "Error!"
+              activityImage: "https://cdn-icons-png.flaticon.com/128/675/675564.png"
+          webhook: ${{ secrets.TEAMS_WEBHOOKS_OPERADOR }}
+
+      - name: Notify via Teams on success
+        if: |
+          always() &&
+          (needs.fmt.outputs.FMT_STDOUT != 'failure' || needs.validate.outputs.VALIDATE_STDOUT != 'failure' || needs.tflint.outputs.TFLINT_STDOUT != 'failure' || needs.plan.outputs.PLAN_STDOUT != 'failure')
+        uses: simbo/msteams-message-card-action@v1.3.2
+        with:
+          buttons: |
+            Github Action ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Github PR View ${{ github.server_url }}/${{ github.repository }}/pull/${{github.event.pull_request.number}}
+          color: 0078D7
+          message: "<strong>Plan Run Success \n- <strong>GitHub Pull Request = #${{ github.event.number }} \n- <strong>Branch = ${{ github.head_ref}} \n- <strong>User = ${{ github.event.pull_request.user.login }} \n- <strong>Plan = \n \n${{ steps.plan-console.outputs.stdout }}" #<p><strong>"Plan Run Success"</strong></p>
+          sections: |
+            - activityTitle: "Plan Success!"
+              activityImage: "https://cdn-icons-png.flaticon.com/128/675/675563.png"
+            - activityTitle: "Plan Cost Estimation 💰"
+            - activityText: "<table style='text-align:center;' bordercolor='black' border='2'><thead><tr style='background-color : SlateBlue; color: White; text-align:center;'><th>Resources</th><th>Coste Men. Anterior</th><th>Coste Men. Propuesto</th><th>Coste Men. Diff</th></tr></thead></thead><tbody><tr><td>${{ env.COST_RES }}</td><td>${{ env.COST_MON_ANT }}</td><td>${{ env.COST_MON_PRO }}</td><td>${{ env.COST_MON_DIFF }}</td></tr></tbody></table>"
+          title: "Terraform Plan Success"
+          webhook: ${{ secrets.TEAMS_WEBHOOKS_OPERADOR }}
+
+      - name: Notify via Teams on success Approvers
+        if: |
+          always() &&
+          (needs.fmt.outputs.FMT_STDOUT != 'failure' || needs.validate.outputs.VALIDATE_STDOUT != 'failure' || needs.tflint.outputs.TFLINT_STDOUT != 'failure' || needs.plan.outputs.PLAN_STDOUT != 'failure')
+        uses: simbo/msteams-message-card-action@v1.3.2
+        with:
+          title: "Terraform PR ${{ github.event.number }} Pendiente de Aprobación"
+          buttons: |
+            Github Action ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Github PR View ${{ github.server_url }}/${{ github.repository }}/pull/${{github.event.pull_request.number}}
+          color: 0078D7
+          message: "<strong>Plan Run Success \n- <strong>GitHub Pull Request = #${{ github.event.number }} \n- <strong>Branch = ${{ github.head_ref}} \n- <strong>User = ${{ github.event.pull_request.user.login }}" #<p><strong>"Plan Run Success"</strong></p>
+          sections: |
+            - activityTitle: "Plan Success!"
+              activityImage: "https://cdn-icons-png.flaticon.com/128/675/675563.png"
+            - activityTitle: "Plan Resource Changes!"
+              activityText: "PR ${{ github.event.number }} Pendiente de aprobación"
+          webhook: ${{ secrets.TEAMS_WEBHOOKS_APROBADOR }}
+
+
+
+
+
