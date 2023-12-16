@@ -19,23 +19,24 @@ jobs:
         color: 0078D7
         message: "<strong>Nuevo PR \n- <strong>GitHub Pull Request = #${{ github.event.number }} \n- <strong>Branch = ${{ github.head_ref}} \n- <strong>User = ${{ github.event.pull_request.user.login }}"
         webhook: ${{ secrets.TEAMS_WEBHOOKS_APROVADOR }}
+    - run: ls
 
-  deploy_to_dev:
-    uses: .github/workflows/cross-ci.yml
-    needs: NotifyPR
-    secrets: inherit
-    if: github.ref == 'refs/heads/develop'
-    with:
-      teams_notifications: true
-      tflint: false
-      driftctl: false
-      checkov: false
-      kics: false
-      infracost: false
-      account_id: "962542038213"
-      iam_role_name: "cross-role-target"
-      env: "dev"
-      aws_region: "us-east-1"
+  # deploy_to_dev:
+  #   uses: ./.github/workflows/cross-ci.yml
+  #   needs: NotifyPR
+  #   secrets: inherit
+  #   if: github.ref == 'refs/heads/develop'
+  #   with:
+  #     teams_notifications: true
+  #     tflint: false
+  #     driftctl: false
+  #     checkov: false
+  #     kics: false
+  #     infracost: false
+  #     account_id: "962542038213"
+  #     iam_role_name: "cross-role-target"
+  #     env: "dev"
+  #     aws_region: "us-east-1"
 
   # deploy_to_dev:
   #   runs-on: ubuntu-latest
