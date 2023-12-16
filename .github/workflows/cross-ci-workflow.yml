@@ -32,7 +32,7 @@ jobs:
     uses: ./.github/workflows/repo-cross-ci-workflow.yml
     needs: NotifyPR
     secrets: inherit
-    if: pull_request.base.ref == 'refs/heads/develop'
+    if: github.base.ref == 'refs/heads/develop'
     with:
       teams_notifications: true
       tflint: false
