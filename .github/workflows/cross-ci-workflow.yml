@@ -23,7 +23,7 @@ jobs:
         color: 0078D7
         message: "<strong>Nuevo PR \n- <strong>GitHub Pull Request = #${{ github.event.number }} \n- <strong>Branch = ${{ github.head_ref}} \n- <strong>User = ${{ github.event.pull_request.user.login }}"
         webhook: ${{ secrets.TEAMS_WEBHOOKS_APROVADOR }}
-    - run: echo ${ pull_request.base.ref }
+    - run: echo ${ github.base.ref }
 
   deploy_to_dev:
     permissions:
