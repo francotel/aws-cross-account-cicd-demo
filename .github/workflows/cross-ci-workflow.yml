@@ -7,8 +7,8 @@ on:
       - develop
 
 jobs:
-  github:
-    uses: actions/checkout@v3
+  # github:
+  #   uses: actions/checkout@v3
   NotifyPR:
     runs-on: ubuntu-latest
     steps:
