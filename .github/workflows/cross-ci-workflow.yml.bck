@@ -1,0 +1,56 @@
+name: Gitflow Workflow
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  NotifyPR:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Notify via Teams on success Approvers
+      uses: simbo/msteams-message-card-action@v1.3.2
+      with:
+        title: "Terraform Nuevo Pull Request ${{ github.head_ref}} : ${{ github.event.number }}"
+        color: 0078D7
+        message: "<strong>Nuevo PR \n- <strong>GitHub Pull Request = #${{ github.event.number }} \n- <strong>Branch = ${{ github.head_ref}} \n- <strong>User = ${{ github.event.pull_request.user.login }}"
+        webhook: ${{ secrets.TEAMS_WEBHOOKS_APROVADOR }}
+
+  deploy_to_dev:
+    uses: Rimac-Seguros/gh-workflows/.github/workflows/cross-ci.yml@feature/repo-init
+    needs: NotifyPR
+    secrets: inherit
+    if: github.ref == 'refs/heads/develop'
+    with:
+      teams_notifications: true
+      tflint: false
+      driftctl: false
+      checkov: false
+      kics: false
+      infracost: false
+      account_id: "962542038213"
+      iam_role_name: "cross-role-target"
+      env: "dev"
+      aws_region: "us-east-1"
+
+  # deploy_to_dev:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   if: github.ref == 'refs/heads/dev'
+
+  #   steps:
+  #     # Add steps to deploy to production (e.g., production server)
+  #     - run: terraform workspace select $BRANCH_NAME || terraform workspace new $BRANCH_NAME
+
+
+  # deploy_to_prod:
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   if: github.ref == 'refs/heads/main'
+
+  #   steps:
+  #     # Add steps to deploy to production (e.g., production server)
+
+
