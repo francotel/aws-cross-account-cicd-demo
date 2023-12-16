@@ -1,0 +1,57 @@
+---
+name: Workflow CI de Terraform
+on:
+  push
+
+env:
+  AWS_REGION : "us-east-1"
+
+# permission can be added at job level or workflow level
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  aws-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git clone the repository
+        uses: actions/checkout@v4
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::087657543526:role/GitHubActions-dev
+          role-session-name: GitHubActions
+          aws-region: us-west-2
+
+        terraform:
+          uses: Rimac-Seguros/gh-workflows/.github/workflows/terraform-ci.yml@feature/repo-init
+          secrets: inherit
+          with:
+            teams_notifications: true
+            tflint: true
+            driftctl: true
+            checkov: true
+            kics: true
+            infracost: true
+
+      - if: f
+        name: configure aws credentials DEV
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962542038213:role/cross-role-target-qa
+          role-session-name: GitHubActions-dev
+          aws-region: us-west-2
+
+      - run: aws sts get-caller-identity
+
+      - if: f
+        name: configure aws credentials DEV
+        uses: aws-actions/configure-azure-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::962542038213:role/cross-role-target-qa
+          role-session-name: GitHubActions-dev
+          aws-region: us-west-2
+      
+      - run: az sts get-caller-identity

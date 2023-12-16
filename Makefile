@@ -38,7 +38,7 @@ tf-cross-role: $(env)
 	cd 02-cross-account-setup && \
 	terraform init -reconfigure -upgrade && \
 	terraform validate && terraform fmt && terraform plan -var env=$(env) && \
-	terraform apply -auto-approve -var env=$(env)
+	terraform apply -var env=$(env)
 
 tf-github-oidc: $(env)
 	cd 03-devops-account && \

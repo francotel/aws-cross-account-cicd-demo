@@ -65,6 +65,11 @@ resource "aws_iam_openid_connect_provider" "github" {
   client_id_list  = ["sts.amazonaws.com"]
 }
 
+# data "aws_iam_role" "cross_account_role" {
+#   name = "RoleCrossAccountDynamoDBAccess"
+#   # Entra con las credenciales de la cuenta B
+# }
+
 # resource "aws_iam_role_policy" "deploy_infra" {
 
 #   name = "Deploy-infrastructure"
