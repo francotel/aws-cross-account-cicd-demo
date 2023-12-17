@@ -119,7 +119,7 @@ jobs:
     if: ${{ inputs.driftctl }}
     name: Driftctl
     needs: fmt
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     env:
       TF_ROOT: ${{ inputs.tf_workdir }}
     steps:
@@ -142,7 +142,7 @@ jobs:
         run: echo ${{ steps.driftctl.outcome }}
 
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: [fmt,driftctl]
     steps:
     - name: Checkout
@@ -193,7 +193,7 @@ jobs:
 
   tflint:
     if: ${{ inputs.tflint }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: validate
     steps:
     - name: Download terraform artifact
@@ -238,7 +238,7 @@ jobs:
     if: |
       always() &&
       (needs.fmt.outputs.FMT_STDOUT != 'failure')
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: [validate,fmt,tflint]
     steps:
     - name: Checkout
@@ -290,7 +290,7 @@ jobs:
     if: |
       always() &&
       ( inputs.checkov )
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: plan
     steps:
     - name: Checkout
@@ -329,7 +329,7 @@ jobs:
     if: |
       always() &&
       ( inputs.kics )
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: plan
     steps:
     - name: Checkout
@@ -362,7 +362,7 @@ jobs:
         output_path: kics-results/
 
   opa:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: plan
     steps:
     - name: Checkout
@@ -393,7 +393,7 @@ jobs:
     if: |
       always() &&
       (needs.plan.outputs.PLAN_STDOUT != 'failure' && inputs.infracost )
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: [opa,kics,checkov,plan]
     permissions:
       contents: read
@@ -460,7 +460,7 @@ jobs:
     if: |
       always() &&
       (needs.plan.outputs.PLAN_STDOUT != 'failure' )
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: [infracost,plan]
     steps:
     - name: Download terraform plan artifact
@@ -536,7 +536,7 @@ jobs:
     name: Notifications
     if: ${{ always()}}
     needs: [fmt, validate, tflint, plan, checkov, kics, opa, infracost]
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     steps:
       - name: Download terraform plan artifact
         uses: actions/download-artifact@v3
