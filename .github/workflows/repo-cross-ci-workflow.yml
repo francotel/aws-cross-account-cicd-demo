@@ -91,7 +91,10 @@ on:
 # permissions:
 #   id-token: write   # This is required for requesting the JWT
 #   contents: read    # This is required for actions/checkout
-
+permissions:
+  contents: 'read'
+  id-token: 'write'
+  
 jobs:
   fmt:
     runs-on: ${{ inputs.runs_on }}
@@ -243,9 +246,6 @@ jobs:
       always() &&
       (needs.fmt.outputs.FMT_STDOUT != 'failure')
     runs-on: ${{ inputs.runs_on }}
-    permissions:
-      contents: 'read'
-      id-token: 'write'
     needs: [validate,fmt,tflint]
     steps:
     - name: Checkout
