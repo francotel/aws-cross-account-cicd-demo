@@ -26,6 +26,7 @@ jobs:
     - run: echo ${{ github.event.pull_request.base.ref }}
 
   deploy_to_dev:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
