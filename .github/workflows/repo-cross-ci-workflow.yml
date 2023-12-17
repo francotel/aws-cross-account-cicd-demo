@@ -244,7 +244,8 @@ jobs:
       (needs.fmt.outputs.FMT_STDOUT != 'failure')
     runs-on: ${{ inputs.runs_on }}
     permissions:
-      id-token: write 
+      contents: 'read'
+      id-token: 'write'
     needs: [validate,fmt,tflint]
     steps:
     - name: Checkout
