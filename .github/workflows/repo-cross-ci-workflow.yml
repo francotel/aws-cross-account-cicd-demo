@@ -94,6 +94,7 @@ on:
 permissions:
   contents: 'read'
   id-token: 'write'
+  pull-requests: 'write'
   
 jobs:
   fmt:
@@ -402,9 +403,6 @@ jobs:
       (needs.plan.outputs.PLAN_STDOUT != 'failure' && inputs.infracost )
     runs-on: ${{ inputs.runs_on }}
     needs: [opa,kics,checkov,plan]
-    permissions:
-      contents: read
-      pull-requests: write
     env:
       TF_ROOT: ${{ inputs.tf_workdir }}
     steps:
