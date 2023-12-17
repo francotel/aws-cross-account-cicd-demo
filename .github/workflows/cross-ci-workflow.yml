@@ -42,6 +42,7 @@ jobs:
       checkov: false
       kics: false
       opa: true
+      validate: true
       infracost: false
       account_id: "962542038213"
       iam_role_name: "cross-role-target"
