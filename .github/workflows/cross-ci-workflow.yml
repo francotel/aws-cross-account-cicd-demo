@@ -38,11 +38,11 @@ jobs:
     with:
       teams_notifications: true
       tflint: true
-      driftctl: false
-      checkov: false
-      kics: false
-      opa: true
       validate: true
+      driftctl: false
+      checkov: true
+      kics: true
+      opa: true
       infracost: false
       account_id: "962542038213"
       iam_role_name: "cross-role-target"

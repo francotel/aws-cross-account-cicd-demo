@@ -213,7 +213,9 @@ jobs:
       VALIDATE_OUTPUT: ${{ steps.validate-console.outputs.stdout }}
 
   tflint:
-    if: ${{ inputs.tflint }}
+    if: |
+      always() &&
+      ( inputs.tflint )
     runs-on: ${{ inputs.runs_on }}
     needs: validate
     steps:
