@@ -46,6 +46,12 @@ on:
         type: boolean
         default: true
 
+      opa:
+        description: Whether OPA are enabled or not
+        required: false
+        type: boolean
+        default: true
+
       infracost:
         description: Whether Infracost are enabled or not
         required: false
@@ -88,13 +94,11 @@ on:
         type: string
         default: cross-role-target
 
-# permissions:
-#   id-token: write   # This is required for requesting the JWT
-#   contents: read    # This is required for actions/checkout
+
 permissions:
-  contents: 'read'
-  id-token: 'write'
-  pull-requests: 'write'
+  contents: read
+  id-token: write
+  pull-requests: write
   
 jobs:
   fmt:
@@ -156,12 +160,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Configure AWS Credentials
+    - name: configure aws credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+        role-to-assume: arn:aws:iam::${ inputs.account_id }:role/${ inputs.iam_role_name }-${ inputs.env }
+        role-session-name: GitHubActions
+        aws-region: ${ inputs.aws_region }
 
     - uses: hashicorp/setup-terraform@v3
       with:
@@ -309,12 +313,12 @@ jobs:
       with:
         name: terraform-plan
 
-    - name: Configure AWS Credentials
+    - name: configure aws credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+        role-to-assume: arn:aws:iam::${ inputs.account_id }:role/${ inputs.iam_role_name }-${ inputs.env }
+        role-session-name: GitHubActions
+        aws-region: ${ inputs.aws_region }
 
     - name: Install checkov
       id: install
@@ -348,12 +352,12 @@ jobs:
       with:
         name: terraform-plan
 
-    - name: Configure AWS Credentials
+    - name: configure aws credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+        role-to-assume: arn:aws:iam::${ inputs.account_id }:role/${ inputs.iam_role_name }-${ inputs.env }
+        role-session-name: GitHubActions
+        aws-region: ${ inputs.aws_region }
 
     - name: run kics Scan
       id: kics
@@ -370,6 +374,9 @@ jobs:
         output_path: kics-results/
 
   opa:
+    if: |
+      always() &&
+      ( inputs.kics )
     runs-on: ${{ inputs.runs_on }}
     needs: plan
     steps:
@@ -381,12 +388,12 @@ jobs:
       with:
         name: terraform-plan
 
-    - name: Configure AWS Credentials
+    - name: configure aws credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+        role-to-assume: arn:aws:iam::${ inputs.account_id }:role/${ inputs.iam_role_name }-${ inputs.env }
+        role-session-name: GitHubActions
+        aws-region: ${ inputs.aws_region }
 
     - name: Setup OPA
       uses: open-policy-agent/setup-opa@v2
