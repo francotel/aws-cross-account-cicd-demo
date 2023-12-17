@@ -90,7 +90,7 @@ on:
 
 jobs:
   fmt:
-    runs-on: inputs.runs_on
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v3
