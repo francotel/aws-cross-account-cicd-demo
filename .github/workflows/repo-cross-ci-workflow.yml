@@ -88,10 +88,10 @@ on:
         type: string
         default: cross-role-target
 
-permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: read    # This is required for actions/checkout
-  
+# permissions:
+#   id-token: write   # This is required for requesting the JWT
+#   contents: read    # This is required for actions/checkout
+
 jobs:
   fmt:
     runs-on: ${{ inputs.runs_on }}
