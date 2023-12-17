@@ -244,12 +244,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Configure AWS Credentials
+    - name: configure aws credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+        role-to-assume: arn:aws:iam::${{ inputs.account_id }}:role/${{ inputs.iam_role_name }}-${{ inputs.env }}
+        role-session-name: GitHubActions
+        aws-region: ${{ inputs.aws_region }}
 
     - uses: hashicorp/setup-terraform@v3
       with:

@@ -31,7 +31,7 @@ jobs:
       pull-requests: write
     uses: ./.github/workflows/repo-cross-ci-workflow.yml
     needs: NotifyPR
-    # secrets: inherit
+    secrets: inherit
     if: github.event.pull_request.base.ref == 'develop'
     with:
       teams_notifications: true
