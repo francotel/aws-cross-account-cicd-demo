@@ -12,8 +12,6 @@ data "aws_iam_policy_document" "cross_policy" {
     ]
   }
 
-
-
   statement {
     sid = "CloudWatchLogsPolicy"
     actions = [
