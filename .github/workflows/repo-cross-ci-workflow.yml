@@ -176,6 +176,8 @@ jobs:
         role-session-name: GitHubActions
         aws-region: ${{ inputs.aws_region }}
 
+    - run: aws s3 ls s3://across-account-terraform-state-backend
+
     - uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: ${{ inputs.tf_version }}
