@@ -176,8 +176,7 @@ jobs:
         role-session-name: GitHubActions
         aws-region: ${{ inputs.aws_region }}
 
-    - run: aws s3 ls s3://across-account-terraform-state-backend
-
+    - run: aws sts get-caller-identity
 
     - uses: hashicorp/setup-terraform@v3
       with:
