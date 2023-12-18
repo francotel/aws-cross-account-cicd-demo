@@ -10,10 +10,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "across-account-terraform-state-backend"
-    key            = "devops-account/demo-multi-account.tfstate"
-    region         = "us-west-2"
-    encrypt        = true
+    bucket  = "across-account-terraform-state-backend"
+    key     = "devops-account/demo-multi-account.tfstate"
+    region  = "us-west-2"
+    encrypt = true
   }
 
 }
