@@ -8,6 +8,7 @@ data "aws_iam_policy_document" "cross_policy" {
       "arn:aws:s3:::across-account-terraform-state-backend"
     ]
   }
+  
   statement {
     sid = "CloudWatchLogsPolicy"
     actions = [
