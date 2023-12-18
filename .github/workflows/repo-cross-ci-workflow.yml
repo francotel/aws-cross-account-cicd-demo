@@ -183,7 +183,7 @@ jobs:
         terraform_version: ${{ inputs.tf_version }}
         terraform_wrapper: false
 
-    - run: terraform workspace select ${ inputs.env } || terraform workspace new ${ inputs.env }
+    - run: terraform workspace select ${{ inputs.env }} || terraform workspace new ${{ inputs.env }}
 
     - id: init
       run: terraform init
