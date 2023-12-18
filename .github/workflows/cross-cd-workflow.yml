@@ -1,0 +1,53 @@
+name: Workflow CD de Terraform
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+      - develop
+      - qa
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+  pull-requests: write
+
+jobs:
+  github:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+  NotifyPR-Operador:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Notify via Teams on APPROVE PR
+      if: ${{ inputs.teams_notifications }}
+      uses: simbo/msteams-message-card-action@v1.3.2
+      with:
+        title: "Terraform Pull Request # ${{ github.event.number }} Aprobado"
+        color: 0078D7
+        message: "<strong>Nuevo PR \n- <strong>GitHub Pull Request = #${{ github.event.number }} \n- <strong>Branch = ${{ github.head_ref}} \n- <strong>User = ${{ github.event.pull_request.user.login }}" #<p><strong>"Plan Run Success"</strong></p>
+        webhook: ${{ secrets.TEAMS_WEBHOOKS_OPERADOR }}
+
+  apply_to_dev:
+    uses: ./.github/workflows/repo-cross-cd-workflow.yml
+    needs: NotifyPR
+    secrets: inherit
+    if: github.event.pull_request.base.ref == 'develop'
+    with:
+      teams_notifications: true
+      tflint: false
+      validate: true
+      driftctl: false
+      checkov: false
+      kics: false
+      opa: false
+      infracost: false
+      account_id: "962542038213"
+      iam_role_name: "cross-role-target"
+      env: "dev"
+      aws_region: "us-east-1"

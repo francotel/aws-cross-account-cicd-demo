@@ -1,0 +1,94 @@
+package terraform 
+
+import input.tfplan as tfplan
+import input.tfrun as tfrun
+
+rds[r] {
+    r := tfplan.resource_changes[_]
+    r.type == "aws_db_instance"
+}
+
+security_group_is_set(value) {
+	count(value.expressions.vpc_security_group_ids.constant_value) > 0
+} else {
+	count(value.expressions.vpc_security_group_ids.references) > 0
+} else = false {
+	true
+}
+
+split_sg_id(sg_str) = [x |
+	parts := split(sg_str, ".")
+	x := parts[1]
+]
+
+if_open_rule(sg_ref) {
+	resource := input.resource_changes[_]
+	resource.mode == "managed"
+	resource.type == "aws_security_group"
+	resource.name == sg_ref
+	resource.change.after.ingress[_].cidr_blocks[_] != "0.0.0.0/0"
+}
+
+get_correct_message(value) = msg {
+	not security_group_is_set(value)
+	msg := "RDS resource '%s' must have security groups attached"
+} else = msg {
+	sg_ref := split_sg_id(value.expressions.vpc_security_group_ids.references[_])[0]
+	not if_open_rule(sg_ref)
+	msg := "ARDS resource '%s' security groups shall not have '0.0.0.0/0' in inbound rules"
+}
+
+get_error_message(resource) = msg {
+	value := data.utils.find_configuration_resource(input, resource)
+	msg := get_correct_message(value)
+}
+
+deny[reason] {
+	resource := input.resource_changes[_]
+	resource.mode == "managed"
+	resource.type == "aws_db_instance"
+	data.utils.is_create_or_update(resource.change.actions)
+	message := get_error_message(resource)
+	reason := sprintf(message, [resource.type])
+}
+
+# Rule to require delete protection enabled 
+deny[reason] {
+    r := rds[_]
+    r.change.after.deletion_protection == false
+    reason := sprintf(
+        "%s: requires deletion_protection enabled",
+        [r.address]
+    )
+}
+
+
+# Rule to require BACKUP RETENTION enabled 
+deny[reason] {
+    r := rds[_]
+    r.change.after.backup_retention_period == 0
+    reason := sprintf(
+        "%s: requires BACKUP RETENTION enabled",
+        [r.address]
+    )
+}
+
+# Rule to require storage encryption enabled 
+deny[reason] {
+    r := rds[_]
+    r.change.after.storage_encrypted == false
+    reason := sprintf(
+        "%s: requires BACKUP RETENTION enabled",
+        [r.address]
+    )
+}
+
+# Rule to require public accessible false" 
+deny[reason] {
+    r := rds[_]
+    r.change.after.publicly_accessible == false
+    reason := sprintf(
+        "%s: requires public accessible false",
+        [r.address]
+    )
+}

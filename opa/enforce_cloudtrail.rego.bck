@@ -1,0 +1,55 @@
+package terraform 
+
+import input.tfplan as tfplan
+import input.tfrun as tfrun
+
+cloudtrail[r] {
+    r := tfplan.resource_changes[_]
+    r.type == "aws_cloudtrail"
+}
+
+s3_buckets[r] {
+    r := tfplan.resource_changes[_]
+    r.type == "aws_s3_bucket"
+}
+
+# Rule to require retention_in_days
+deny[reason] {
+    r := cloudtrail[_]
+    r.change.after.retention_in_days == 0
+    reason := sprintf(
+        "%s: requires logging",
+        [r.address]
+    )
+}
+
+# Rule to require encryption config
+deny[reason] {
+    r := cloudtrail[_]
+    count(r.change.after.kms_key_id) == 0
+    reason := sprintf(
+        "%s: requires encryption",
+        [r.address]
+    )
+}        
+
+# Rule to require encryption config
+deny[reason] {
+    r := cloudtrail[_]
+    r.change.after.s3_bucket_name != "s3-cloudtrail-dummy"
+    reason := sprintf(
+        "%s: requires encryption",
+        [r.address]
+    )
+}
+
+deny[reason] {
+    r := s3_buckets["s3-cloudtrail-dummy"]
+    r.change.after.mfa_delete == false
+    reason := sprintf(
+        "%s: requires encryption mfa",
+        [r.address]
+    )
+}
+               
+
