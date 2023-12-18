@@ -178,6 +178,7 @@ jobs:
 
     - run: aws sts get-caller-identity
 
+
     - uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: ${{ inputs.tf_version }}
