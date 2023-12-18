@@ -38,12 +38,12 @@ jobs:
     if: github.event.pull_request.base.ref == 'develop'
     with:
       teams_notifications: true
-      tflint: false
+      tflint: true
       validate: true
       driftctl: false
-      checkov: false
-      kics: false
-      opa: false
+      checkov: true
+      kics: true
+      opa: true
       infracost: false
       account_id: "962542038213"
       iam_role_name: "cross-role-target"

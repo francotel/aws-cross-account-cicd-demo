@@ -289,7 +289,8 @@ jobs:
     - id: init
       run: terraform init -upgrade
 
-    - run: terraform workspace list
+    - id: workspace
+      run: terraform  workspace select -or-create ${{ inputs.env }}
 
     - name: Terraform Plan
       id: plan
