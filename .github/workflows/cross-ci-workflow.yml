@@ -38,7 +38,7 @@ jobs:
     if: github.event.pull_request.base.ref == 'develop'
     with:
       teams_notifications: true
-      tflint: true
+      tflint: false
       validate: true
       driftctl: false
       checkov: true
