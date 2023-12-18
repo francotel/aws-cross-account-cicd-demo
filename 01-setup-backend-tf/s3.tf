@@ -49,7 +49,7 @@ resource "aws_s3_bucket_policy" "bucket" {
           "s3:PutObject",
           "s3:ListBucket"
         ]
-        Principal = { AWS = ["arn:aws:iam::${account}:root"] }
+        Principal = { AWS = ["arn:aws:iam::${account}:role/cross-role-target-${env}"] }
         Resource = [
           aws_s3_bucket.bucket.arn,
           "${aws_s3_bucket.bucket.arn}/*"
