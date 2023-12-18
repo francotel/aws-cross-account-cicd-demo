@@ -7,7 +7,8 @@ data "aws_iam_policy_document" "cross_policy" {
       "s3:PutObject"
     ]
     resources = [
-      "arn:aws:s3:::across-account-terraform-state-backend"
+      "arn:aws:s3:::across-account-terraform-state-backend",
+      "arn:aws:s3:::across-account-terraform-state-backend/*"
     ]
   }
 
